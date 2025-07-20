@@ -1,0 +1,124 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  phone     String?
+  role      UserRole @default(CLIENT)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  appointments    Appointment[] @relation("ClientAppointments")
+  employeeAppointments Appointment[] @relation("EmployeeAppointments")
+  availabilities Availability[]
+
+  @@map("users")
+}
+
+model Prestation {
+  id          String   @id @default(cuid())
+  title       String   @unique
+  category    String
+  duration    String
+  price       Float
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  appointmentPrestations AppointmentPrestation[]
+
+  @@map("prestations")
+}
+
+model Appointment {
+  id          String           @id @default(cuid())
+  clientId    String
+  employeeId  String
+  date        DateTime
+  time        String
+  duration    Int              // in minutes
+  status      AppointmentStatus @default(PENDING)
+  notes       String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  // Relations
+  client      User                    @relation("ClientAppointments", fields: [clientId], references: [id], onDelete: Cascade)
+  employee    User                    @relation("EmployeeAppointments", fields: [employeeId], references: [id], onDelete: Cascade)
+  prestations AppointmentPrestation[]
+
+  @@map("appointments")
+}
+
+model AppointmentPrestation {
+  id            String      @id @default(cuid())
+  appointmentId String
+  prestationId  String
+  createdAt     DateTime    @default(now())
+
+  // Relations
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  prestation  Prestation  @relation(fields: [prestationId], references: [id], onDelete: Cascade)
+
+  @@unique([appointmentId, prestationId])
+  @@map("appointment_prestations")
+}
+
+model Availability {
+  id         String @id @default(cuid())
+  employeeId String
+  weekday    Int    // 0 = Sunday, 1 = Monday, etc.
+  isActive   Boolean @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  employee User @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  timeSlots TimeSlot[]
+
+  @@unique([employeeId, weekday])
+  @@map("availabilities")
+}
+
+model TimeSlot {
+  id            String @id @default(cuid())
+  availabilityId String
+  startTime     String // Format: "HH:MM"
+  endTime       String // Format: "HH:MM"
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  availability Availability @relation(fields: [availabilityId], references: [id], onDelete: Cascade)
+
+  @@map("time_slots")
+}
+
+enum UserRole {
+  CLIENT
+  EMPLOYEE
+  ADMIN
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
